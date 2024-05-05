@@ -1,0 +1,6 @@
+docker run --rm -d --name=grafana -p 3000:3000 --network sre-test-network grafana/grafana
+
+docker run --rm -d --name prometheus -p 9090:9090 --network sre-test-network -v $(PWD)/prometheus.yml:/etc/prometheus/prometheus.yml --entrypoint sh prom/prometheus -c "/bin/prometheus --config.file=/etc/prometheus/prometheus.yml"
+
+docker run --rm -d --name=collector -p 4317:4317 -p 9464:9464 -p 55680:55680 -p 55681:55681 -v $(PWD)/collector-config.yaml:/conf/collector-config.yaml --network sre-test-network otel/opentelemetry-collector:latest --config /conf/collector-config.yaml
+
