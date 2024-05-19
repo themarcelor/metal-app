@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"google.golang.org/grpc"
@@ -21,12 +22,17 @@ import (
 
 var meuContador otel_metric.Int64Counter
 
+var (
+	outfile, _ = os.Create("minhaApp.log")
+	logger     = log.New(outfile, "", 0)
+)
+
 func main() {
 	ctx := context.Background()
 
 	serviceName := "metal-app"
 	collectorAddress := "localhost:4317"
-	log.Printf("Establishing gRPC connection with %s...\n", collectorAddress)
+	logger.Printf("Establishing gRPC connection with %s...\n", collectorAddress)
 
 	dopts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -60,7 +66,7 @@ func main() {
 	)
 	meter := provider.Meter("sre")
 
-	c, err := meter.Int64Counter("sre.meu_contador")
+	c, err := meter.Int64Counter("sre.meu.contador")
 	if err != nil {
 		log.Fatalf("unable to create counter metric", err)
 	}
@@ -78,7 +84,7 @@ func HelloServer(w http.ResponseWriter, r *http.Request) {
 	}
 	opt := instrument.WithAttributes(attrs...)
 
-	log.Print("emitindo metrica OTel...")
+	logger.Print("emitindo metrica OTel...")
 	meuContador.Add(ctx, 1, opt)
 
 	fmt.Fprintf(w, "Olá, %s!", r.URL.Path[1:])

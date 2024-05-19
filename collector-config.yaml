@@ -4,12 +4,31 @@ receivers:
       grpc:
       http:
 
+  filelog:
+    include: [ /var/log/sre/minhaApp.log ]
+
 exporters:
   prometheus:
     endpoint: "0.0.0.0:9464"
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+    default_labels_enabled:
+      exporter: true
+      job: true
 
 processors:
   batch:
+  resource:
+    attributes:
+    - key: service_name
+      value: "metal-app"
+      action: upsert
+    - key: deployment_environment
+      value: "dev"
+      action: upsert
+    - action: insert
+      key: loki.resource.labels
+      value: service_name, deployment_environment
 
 service:
   pipelines:
@@ -17,3 +36,7 @@ service:
       receivers: [otlp]
       exporters: [prometheus]
       processors: [batch]
+    logs:
+      receivers: [filelog]
+      processors: [resource]
+      exporters: [loki]
