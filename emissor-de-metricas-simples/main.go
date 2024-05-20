@@ -11,13 +11,19 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	//"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	instrument "go.opentelemetry.io/otel/metric"
 	otel_metric "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
+
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 var meuContador otel_metric.Int64Counter
@@ -60,6 +66,7 @@ func main() {
 		log.Fatalf("failed to create resource: %w", err)
 	}
 
+	// metrics
 	provider := metric.NewMeterProvider(
 		metric.WithResource(res),
 		metric.WithReader(metric.NewPeriodicReader(exporter)),
@@ -72,8 +79,27 @@ func main() {
 	}
 	meuContador = c
 
+	// traces
+	//	jaegerEndpoint := "localhost:14250"
+	//	jg, _ := otlptracegrpc.New(ctx, otlptracegrpc.WithEndpoint(jaegerEndpoint), otlptracegrpc.WithInsecure())
+	exp, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
+	if err != nil {
+		log.Fatalf("failed to initialize stdouttrace exporter: %w", err)
+	}
+	bsp := sdktrace.NewBatchSpanProcessor(exp)
+
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+		sdktrace.WithSpanProcessor(bsp),
+		//sdktrace.WithBatcher(jg),
+	)
+	otel.SetTracerProvider(tp)
+
+	mux := http.NewServeMux()
+	mux.Handle("/", otelhttp.NewHandler(otelhttp.WithRouteTag("/", http.HandlerFunc(HelloServer)), "root", otelhttp.WithPublicEndpoint()))
+
 	http.HandleFunc("/", HelloServer)
-	http.ListenAndServe(":8080", nil)
+	http.ListenAndServe(":8080", mux)
 }
 
 func HelloServer(w http.ResponseWriter, r *http.Request) {
