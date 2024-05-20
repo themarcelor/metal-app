@@ -15,8 +15,8 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
-	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
-	//"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	//"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	instrument "go.opentelemetry.io/otel/metric"
 	otel_metric "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/sdk/metric"
@@ -80,18 +80,19 @@ func main() {
 	meuContador = c
 
 	// traces
-	//	jaegerEndpoint := "localhost:14250"
-	//	jg, _ := otlptracegrpc.New(ctx, otlptracegrpc.WithEndpoint(jaegerEndpoint), otlptracegrpc.WithInsecure())
-	exp, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
-	if err != nil {
-		log.Fatalf("failed to initialize stdouttrace exporter: %w", err)
-	}
-	bsp := sdktrace.NewBatchSpanProcessor(exp)
+	collectorTracesAddress := "localhost:4417"
+	t, _ := otlptracegrpc.New(ctx, otlptracegrpc.WithEndpoint(collectorTracesAddress), otlptracegrpc.WithInsecure())
+	//exp, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
+	//if err != nil {
+	//	log.Fatalf("failed to initialize stdouttrace exporter: %w", err)
 
+	//}
+	//bsp := sdktrace.NewBatchSpanProcessor(exp)
+	bsp := sdktrace.NewBatchSpanProcessor(t)
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+		sdktrace.WithResource(res),
 		sdktrace.WithSpanProcessor(bsp),
-		//sdktrace.WithBatcher(jg),
 	)
 	otel.SetTracerProvider(tp)
 

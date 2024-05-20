@@ -3,7 +3,10 @@ receivers:
     protocols:
       grpc:
       http:
-
+  otlp/traces:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4417
   filelog:
     include: [ /var/log/sre/minhaApp.log ]
 
@@ -15,6 +18,10 @@ exporters:
     default_labels_enabled:
       exporter: true
       job: true
+  otlp/traces:
+    endpoint: tempo:4517
+    tls:
+      insecure: true
 
 processors:
   batch:
@@ -40,3 +47,7 @@ service:
       receivers: [filelog]
       processors: [resource]
       exporters: [loki]
+    traces:
+      receivers: [otlp/traces]
+      processors: [resource]
+      exporters: [otlp/traces]
