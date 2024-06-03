@@ -24,9 +24,12 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var meuContador otel_metric.Int64Counter
+
+var tracer trace.Tracer
 
 var (
 	outfile, _ = os.Create("minhaApp.log")
@@ -95,6 +98,7 @@ func main() {
 		sdktrace.WithSpanProcessor(bsp),
 	)
 	otel.SetTracerProvider(tp)
+	tracer = otel.Tracer(serviceName)
 
 	mux := http.NewServeMux()
 	mux.Handle("/", otelhttp.NewHandler(otelhttp.WithRouteTag("/", http.HandlerFunc(HelloServer)), "root", otelhttp.WithPublicEndpoint()))
@@ -114,5 +118,18 @@ func HelloServer(w http.ResponseWriter, r *http.Request) {
 	logger.Print("emitindo metrica OTel...")
 	meuContador.Add(ctx, 1, opt)
 
-	fmt.Fprintf(w, "Olá, %s!", r.URL.Path[1:])
+	fmt.Fprintf(w, OtherFunction(ctx, r.URL.Path[1:]))
+}
+
+func OtherFunction(ctx context.Context, nome string) string {
+	_, span := tracer.Start(
+		ctx,
+		"digaOla",
+		trace.WithAttributes(attribute.String("AlgumAtributo", "QualquerValor")),
+	)
+	if span != nil {
+		defer span.End()
+	}
+
+	return fmt.Sprintf("Olá, %s!", nome)
 }

@@ -9,3 +9,6 @@ storage:
     backend: local
     local:
       path: /var/tempo/blocks
+
+server:
+    http_listen_port: 9085
