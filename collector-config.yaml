@@ -36,6 +36,23 @@ processors:
     - action: insert
       key: loki.resource.labels
       value: service_name, deployment_environment
+  tail_sampling:
+    decision_wait: 10s
+    num_traces: 100
+    expected_new_traces_per_sec: 10
+    policies:
+      [
+        {
+          name: errors-policy,
+          type: status_code,
+          status_code: { status_codes: [ERROR] }
+        },
+        {
+          name: randomized-policy,
+          type: probabilistic,
+          probabilistic: { sampling_percentage: 25 },
+        },
+      ]
 
 service:
   pipelines:
@@ -49,5 +66,5 @@ service:
       exporters: [loki]
     traces:
       receivers: [otlp/traces]
-      processors: [resource]
+      processors: [resource,tail_sampling]
       exporters: [otlp/traces]

@@ -31,15 +31,14 @@ var meuContador otel_metric.Int64Counter
 
 var tracer trace.Tracer
 
-type IgnoreCaminhoSampler struct {
-	sampler sdktrace.Sampler
-}
+type IgnoreCaminhoSampler struct{}
 
 func (ics *IgnoreCaminhoSampler) ShouldSample(p sdktrace.SamplingParameters) sdktrace.SamplingResult {
 	result := sdktrace.SamplingResult{
 		Tracestate: trace.SpanContextFromContext(p.ParentContext).TraceState(),
 	}
 	shouldSample := true
+	fmt.Println("### SHOULD SAMPLE EXECUTANDO!!!")
 	for _, att := range p.Attributes {
 		if att.Key == "http.target" && att.Value.AsString() == "/meh" {
 			shouldSample = false
@@ -120,8 +119,7 @@ func main() {
 	//}
 	//bsp := sdktrace.NewBatchSpanProcessor(exp)
 	bsp := sdktrace.NewBatchSpanProcessor(t)
-	s := sdktrace.ParentBased(sdktrace.TraceIDRatioBased(0.1))
-	ignoreCaminhoSampler := &IgnoreCaminhoSampler{sampler: s}
+	ignoreCaminhoSampler := new(IgnoreCaminhoSampler)
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithSampler(ignoreCaminhoSampler),
 		sdktrace.WithResource(res),
