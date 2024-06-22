@@ -31,9 +31,37 @@ var meuContador otel_metric.Int64Counter
 
 var tracer trace.Tracer
 
+type IgnoreCaminhoSampler struct {
+	sampler sdktrace.Sampler
+}
+
+func (ics *IgnoreCaminhoSampler) ShouldSample(p sdktrace.SamplingParameters) sdktrace.SamplingResult {
+	result := sdktrace.SamplingResult{
+		Tracestate: trace.SpanContextFromContext(p.ParentContext).TraceState(),
+	}
+	shouldSample := true
+	for _, att := range p.Attributes {
+		if att.Key == "http.target" && att.Value.AsString() == "/meh" {
+			shouldSample = false
+			break
+		}
+	}
+	if shouldSample {
+		result.Decision = sdktrace.RecordAndSample
+	} else {
+		result.Decision = sdktrace.Drop
+	}
+	return result
+}
+
+func (ics IgnoreCaminhoSampler) Description() string {
+	return "excludeBasedOnURLPath"
+}
+
 var (
 	outfile, _ = os.Create("minhaApp.log")
-	logger     = log.New(outfile, "", 0)
+	logger     = log.New(os.Stdout, "", 0)
+//log.New(outfile, "", 0)
 )
 
 func main() {
@@ -92,8 +120,10 @@ func main() {
 	//}
 	//bsp := sdktrace.NewBatchSpanProcessor(exp)
 	bsp := sdktrace.NewBatchSpanProcessor(t)
+	s := sdktrace.ParentBased(sdktrace.TraceIDRatioBased(0.1))
+	ignoreCaminhoSampler := &IgnoreCaminhoSampler{sampler: s}
 	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+		sdktrace.WithSampler(ignoreCaminhoSampler),
 		sdktrace.WithResource(res),
 		sdktrace.WithSpanProcessor(bsp),
 	)
@@ -117,6 +147,12 @@ func HelloServer(w http.ResponseWriter, r *http.Request) {
 
 	logger.Print("emitindo metrica OTel...")
 	meuContador.Add(ctx, 1, opt)
+
+	if r.URL.Path[1:] == "erro" {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("deu errado"))
+		return
+	}
 
 	fmt.Fprintf(w, OtherFunction(ctx, r.URL.Path[1:]))
 }
