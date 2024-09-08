@@ -4,3 +4,8 @@ docker run --rm -d --name prometheus -p 9090:9090 --network sre-test-network -v 
 
 docker run --rm -d --name=collector -p 4317:4317 -p 9464:9464 -p 55680:55680 -p 55681:55681 -v $(PWD)/collector-config.yaml:/conf/collector-config.yaml --network sre-test-network otel/opentelemetry-collector:latest --config /conf/collector-config.yaml
 
+docker run --rm -it --name prometheus -p 9090:9090 --network sre-test-network -v $(PWD)/prometheus.yml:/etc/prometheus/prometheus.yml --entrypoint sh prom/prometheus
+promtool tsdb create-blocks-from openmetrics metricas
+/bin/prometheus --config.file=/etc/prometheus/prometheus.yml
+
+docker run --rm -it --name recebedor-de-alertas -p "8080:8080" --network sre-test-network daime/http-dump:latest
