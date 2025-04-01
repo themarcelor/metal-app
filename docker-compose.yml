@@ -8,7 +8,7 @@ services:
       - sre-test-network
   prometheus:
     image: prom/prometheus
-    command: --config.file=/etc/prometheus/prometheus.yml
+    command: --config.file=/etc/prometheus/prometheus.yml --enable-feature=exemplar-storage
     ports:
       - '9090:9090'
     volumes:
@@ -28,7 +28,7 @@ services:
     networks:
       - sre-test-network
   loki:
-    image: grafana/loki
+    image: grafana/loki:3.1.0
     ports:
       - '3100:3100'
     volumes:

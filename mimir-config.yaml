@@ -18,12 +18,13 @@ server:
 limits:
   ingestion_rate: 10000
   ingestion_burst_size: 20000
+  max_global_exemplars_per_user: 100000
 
 ingester:
   ring:
     kvstore:
       store: inmemory  # Use in-memory kvstore (no distributed ring)
-    replication_factor: 1 
+    replication_factor: 1
 
 distributor:
   ring:
