@@ -59,8 +59,8 @@ func (ics IgnoreCaminhoSampler) Description() string {
 
 var (
 	outfile, _ = os.Create("minhaApp.log")
-	logger     = log.New(os.Stdout, "", 0)
-//log.New(outfile, "", 0)
+	//logger     = log.New(os.Stdout, "", 0)
+	logger       = log.New(outfile, "", 0)
 )
 
 func main() {
@@ -111,7 +111,19 @@ func main() {
 
 	// traces
 	collectorTracesAddress := "localhost:4417"
-	t, _ := otlptracegrpc.New(ctx, otlptracegrpc.WithEndpoint(collectorTracesAddress), otlptracegrpc.WithInsecure())
+	doptsTraces := []grpc.DialOption{
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
+		grpc.WithTimeout(5 * time.Second),
+	}
+	connTraces, err := grpc.DialContext(ctx, collectorTracesAddress, doptsTraces...)
+	if err != nil {
+		log.Fatalf("ERROR: Unable to establish grpc connection to otel traces collector: %w", err)
+	}
+	t, _ := otlptracegrpc.New(
+		ctx,
+		otlptracegrpc.WithGRPCConn(connTraces),
+	)
 	//exp, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
 	//if err != nil {
 	//	log.Fatalf("failed to initialize stdouttrace exporter: %w", err)
@@ -164,6 +176,21 @@ func OtherFunction(ctx context.Context, nome string) string {
 	if span != nil {
 		defer span.End()
 	}
+
+	// Extract trace and span IDs
+	spanCtx := span.SpanContext()
+	traceID := spanCtx.TraceID().String()
+	spanID := spanCtx.SpanID().String()
+
+	// Add attributes including trace information for exemplars
+	var attrs = []attribute.KeyValue{
+		attribute.String("operacao", "oi"),
+		attribute.String("trace_id", traceID),
+		attribute.String("span_id", spanID),
+	}
+	opt := instrument.WithAttributes(attrs...)
+
+	meuContador.Add(ctx, 1, opt) // Fallback if no trace is present
 
 	return fmt.Sprintf("Olá, %s!", nome)
 }

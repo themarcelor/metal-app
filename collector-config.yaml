@@ -7,7 +7,7 @@ receivers:
   otlp/traces:
     protocols:
       grpc:
-        endpoint: 0.0.0.0:4417
+        endpoint: "0.0.0.0:4417"
   filelog:
     include: [ /var/log/sre/minhaApp.log ]
 

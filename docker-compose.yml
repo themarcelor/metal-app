@@ -15,6 +15,18 @@ services:
     - ./prometheus.yml:/etc/prometheus/prometheus.yml
     networks:
       - sre-test-network
+  mimir:
+    image: grafana/mimir
+    command: -config.file=/etc/mimir/config.yaml
+    ports:
+      - '9009:9009'
+    volumes:
+    - ./mimir-config.yaml:/etc/mimir/config.yaml
+    - type: volume
+      source: mimir-data
+      target: /data/mimir/rules
+    networks:
+      - sre-test-network
   loki:
     image: grafana/loki
     ports:
@@ -59,6 +71,7 @@ services:
 volumes:
   loki-data:
   tempo-data:
+  mimir-data:
   grafana-storage:
 networks:
   sre-test-network:
