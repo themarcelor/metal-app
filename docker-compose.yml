@@ -1,0 +1,67 @@
+version: '3.4'
+services:
+  grafana:
+    image: grafana/grafana
+    ports:
+      - '3000:3000'
+    networks:
+      - sre-test-network
+  prometheus:
+    image: prom/prometheus
+    command: --config.file=/etc/prometheus/prometheus.yml
+    ports:
+      - '9090:9090'
+    volumes:
+    - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - sre-test-network
+  loki:
+    image: grafana/loki
+    ports:
+      - '3100:3100'
+    volumes:
+      - type: volume
+        source: loki-data
+        target: /loki
+    networks:
+      - sre-test-network
+  tempo:
+    image: grafana/tempo
+    command: "-config.file=/etc/tempo.yaml"
+    ports:
+      - '4517:4517'
+    volumes:
+      - type: volume
+        source: tempo-data
+        target: /var/tempo
+      - ./tempo.yaml:/etc/tempo.yaml
+    networks:
+      - sre-test-network
+  collector:
+    container_name: collector
+    image: otel/opentelemetry-collector-contrib:0.115.1
+    command: "--config /conf/collector-config.yaml"
+    ports:
+      - '4317:4317'
+      - '4417:4417'
+      - '9464:9464'
+      - '55680:55680'
+      - '55681:55681'
+    volumes:
+      - ./collector-config.yaml:/conf/collector-config.yaml
+      - ./emissor-de-metricas-simples/minhaApp.log:/var/log/sre/minhaApp.log
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+    networks:
+      - sre-test-network
+volumes:
+  loki-data:
+  tempo-data:
+  grafana-storage:
+networks:
+  sre-test-network:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.host_binding_ipv4: "127.0.0.1"

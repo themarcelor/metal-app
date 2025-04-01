@@ -2,6 +2,7 @@ receivers:
   otlp:
     protocols:
       grpc:
+        endpoint: "0.0.0.0:4317"
       http:
   otlp/traces:
     protocols:
@@ -13,11 +14,8 @@ receivers:
 exporters:
   prometheus:
     endpoint: "0.0.0.0:9464"
-  loki:
+  otlphttp/loki:
     endpoint: http://loki:3100/loki/api/v1/push
-    default_labels_enabled:
-      exporter: true
-      job: true
   otlp/traces:
     endpoint: tempo:4517
     tls:
@@ -61,7 +59,7 @@ service:
     logs:
       receivers: [filelog]
       processors: [resource]
-      exporters: [loki]
+      exporters: [otlphttp/loki]
     traces:
       receivers: [otlp/traces]
       processors: [resource,tail_sampling]
