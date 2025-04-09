@@ -21,6 +21,7 @@ import (
 	otel_metric "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
+	"go.opentelemetry.io/otel/sdk/metric/exemplar"
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -100,6 +101,7 @@ func main() {
 	provider := metric.NewMeterProvider(
 		metric.WithResource(res),
 		metric.WithReader(metric.NewPeriodicReader(exporter)),
+		metric.WithExemplarFilter(exemplar.AlwaysOffFilter),
 	)
 	meter := provider.Meter("sre")
 
@@ -132,8 +134,10 @@ func main() {
 	//bsp := sdktrace.NewBatchSpanProcessor(exp)
 	bsp := sdktrace.NewBatchSpanProcessor(t)
 	ignoreCaminhoSampler := new(IgnoreCaminhoSampler)
+	fmt.Printf("### ignoreCaminhoSampler instance: %+v\n", ignoreCaminhoSampler)
 	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithSampler(ignoreCaminhoSampler),
+		// sdktrace.WithSampler(ignoreCaminhoSampler),
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
 		sdktrace.WithResource(res),
 		sdktrace.WithSpanProcessor(bsp),
 	)
@@ -168,7 +172,7 @@ func HelloServer(w http.ResponseWriter, r *http.Request) {
 }
 
 func OtherFunction(ctx context.Context, nome string) string {
-	_, span := tracer.Start(
+	spanCtx, span := tracer.Start(
 		ctx,
 		"digaOla",
 		trace.WithAttributes(attribute.String("AlgumAtributo", "QualquerValor")),
@@ -177,20 +181,13 @@ func OtherFunction(ctx context.Context, nome string) string {
 		defer span.End()
 	}
 
-	// Extract trace and span IDs
-	spanCtx := span.SpanContext()
-	traceID := spanCtx.TraceID().String()
-	spanID := spanCtx.SpanID().String()
-
-	// Add attributes including trace information for exemplars
 	var attrs = []attribute.KeyValue{
 		attribute.String("operacao", "oi"),
-		attribute.String("trace_id", traceID),
-		attribute.String("span_id", spanID),
 	}
 	opt := instrument.WithAttributes(attrs...)
 
-	meuContador.Add(ctx, 1, opt) // Fallback if no trace is present
+	// Add measurement with span context (enables exemplar)
+	meuContador.Add(spanCtx, 1, opt)
 
 	return fmt.Sprintf("Olá, %s!", nome)
 }
