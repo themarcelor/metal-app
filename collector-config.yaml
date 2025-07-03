@@ -12,14 +12,15 @@ receivers:
     include: [ /var/log/sre/minhaApp.log ]
 
 exporters:
-  prometheus:
-    endpoint: "0.0.0.0:9464"
+  prometheusremotewrite:
+    endpoint: "http://mimir:9009/api/v1/push"
   otlphttp/loki:
     endpoint: http://loki:3100/loki/api/v1/push
   otlp/traces:
     endpoint: tempo:4517
     tls:
       insecure: true
+  debug:
 
 processors:
   batch:
@@ -46,7 +47,7 @@ processors:
         {
           name: randomized-policy,
           type: probabilistic,
-          probabilistic: { sampling_percentage: 25 },
+          probabilistic: { sampling_percentage: 100 },
         },
       ]
 
@@ -54,7 +55,7 @@ service:
   pipelines:
     metrics:
       receivers: [otlp]
-      exporters: [prometheus]
+      exporters: [prometheusremotewrite,debug]
       processors: [resource,batch]
     logs:
       receivers: [filelog]
@@ -62,5 +63,9 @@ service:
       exporters: [otlphttp/loki]
     traces:
       receivers: [otlp/traces]
-      processors: [resource,tail_sampling]
+      # processors: [resource,tail_sampling]
+      processors: [resource]
       exporters: [otlp/traces]
+  telemetry:
+    logs:
+      level: debug

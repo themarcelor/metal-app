@@ -20,8 +20,8 @@ import (
 	instrument "go.opentelemetry.io/otel/metric"
 	otel_metric "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/sdk/metric"
-	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/metric/exemplar"
+	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -61,7 +61,7 @@ func (ics IgnoreCaminhoSampler) Description() string {
 var (
 	outfile, _ = os.Create("minhaApp.log")
 	//logger     = log.New(os.Stdout, "", 0)
-	logger       = log.New(outfile, "", 0)
+	logger = log.New(outfile, "", 0)
 )
 
 func main() {
@@ -101,7 +101,7 @@ func main() {
 	provider := metric.NewMeterProvider(
 		metric.WithResource(res),
 		metric.WithReader(metric.NewPeriodicReader(exporter)),
-		metric.WithExemplarFilter(exemplar.AlwaysOffFilter),
+		metric.WithExemplarFilter(exemplar.AlwaysOnFilter),
 	)
 	meter := provider.Meter("sre")
 

@@ -8,7 +8,7 @@ services:
       - sre-test-network
   prometheus:
     image: prom/prometheus
-    command: --config.file=/etc/prometheus/prometheus.yml --enable-feature=exemplar-storage
+    command: --config.file=/etc/prometheus/prometheus.yml --enable-feature=exemplar-storage --web.enable-remote-write-receiver
     ports:
       - '9090:9090'
     volumes:
