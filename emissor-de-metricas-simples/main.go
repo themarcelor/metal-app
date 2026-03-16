@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -57,17 +58,40 @@ func (ics IgnoreCaminhoSampler) Description() string {
 	return "excludeBasedOnURLPath"
 }
 
+func logFilePath() string {
+	if p := os.Getenv("LOG_FILE_PATH"); p != "" {
+		return p
+	}
+	return "minhaApp.log"
+}
+
 var (
-	outfile, _ = os.Create("minhaApp.log")
+	outfile, _ = os.OpenFile(logFilePath(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	logger     = log.New(os.Stdout, "", 0)
-//log.New(outfile, "", 0)
 )
+
+func writeJSONLog(level, message string) {
+	entry := map[string]string{
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
+		"level":     level,
+		"message":   message,
+	}
+	b, err := json.Marshal(entry)
+	if err != nil {
+		logger.Printf("ERROR marshalling log entry: %v", err)
+		return
+	}
+	fmt.Fprintln(outfile, string(b))
+}
 
 func main() {
 	ctx := context.Background()
 
 	serviceName := "metal-app"
-	collectorAddress := "localhost:4317"
+	collectorAddress := os.Getenv("OTEL_COLLECTOR_ADDRESS")
+	if collectorAddress == "" {
+		collectorAddress = "localhost:4317"
+	}
 	logger.Printf("Establishing gRPC connection with %s...\n", collectorAddress)
 
 	dopts := []grpc.DialOption{
@@ -110,7 +134,10 @@ func main() {
 	meuContador = c
 
 	// traces
-	collectorTracesAddress := "localhost:4417"
+	collectorTracesAddress := os.Getenv("OTEL_TRACES_ADDRESS")
+	if collectorTracesAddress == "" {
+		collectorTracesAddress = "localhost:4417"
+	}
 	t, _ := otlptracegrpc.New(ctx, otlptracegrpc.WithEndpoint(collectorTracesAddress), otlptracegrpc.WithInsecure())
 	//exp, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
 	//if err != nil {
@@ -143,15 +170,17 @@ func HelloServer(w http.ResponseWriter, r *http.Request) {
 	}
 	opt := instrument.WithAttributes(attrs...)
 
-	logger.Print("emitindo metrica OTel...")
+	writeJSONLog("INFO", "emitindo metrica OTel...")
 	meuContador.Add(ctx, 1, opt)
 
 	if r.URL.Path[1:] == "erro" {
+		writeJSONLog("ERROR", "request falhou: caminho /erro acionado")
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte("deu errado"))
 		return
 	}
 
+	writeJSONLog("DEBUG", fmt.Sprintf("processando caminho: %s", r.URL.Path[1:]))
 	fmt.Fprintf(w, OtherFunction(ctx, r.URL.Path[1:]))
 }
 

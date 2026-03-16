@@ -15,7 +15,7 @@ exporters:
   prometheus:
     endpoint: "0.0.0.0:9464"
   otlphttp/loki:
-    endpoint: http://loki:3100/loki/api/v1/push
+    endpoint: http://loki:3100/otlp
   otlp/traces:
     endpoint: tempo:4517
     tls:
@@ -25,15 +25,37 @@ processors:
   batch:
   resource:
     attributes:
-    - key: service_name
+    - key: service.name
       value: "metal-app"
       action: upsert
     - key: deployment_environment
       value: "dev"
       action: upsert
-    - action: insert
-      key: loki.resource.labels
-      value: service_name, deployment_environment
+  # Transform processor: parse JSON log bodies and promote fields into OTLP
+  # Using log.cache as scratch space (temporary, not propagated downstream)
+  transform:
+    error_mode: ignore
+    log_statements:
+      - context: log
+        conditions:
+          # Only process records whose body looks like a JSON object
+          - IsString(body) and IsMatch(body, "^\\s*\\{")
+        statements:
+          # 1. Parse the JSON body into the cache scratch space
+          - merge_maps(cache, ParseJSON(body), "upsert")
+          # 2. Promote all parsed fields into log attributes
+          - merge_maps(attributes, cache, "upsert")
+          # 3. Promote level -> severity_text (e.g. "INFO", "ERROR", "DEBUG")
+          - set(severity_text, cache["level"]) where cache["level"] != nil
+          # 4. Map severity_text to numeric severity_number per OTLP spec
+          - set(severity_number, SEVERITY_NUMBER_DEBUG) where cache["level"] == "DEBUG"
+          - set(severity_number, SEVERITY_NUMBER_INFO)  where cache["level"] == "INFO"
+          - set(severity_number, SEVERITY_NUMBER_WARN)  where cache["level"] == "WARN"
+          - set(severity_number, SEVERITY_NUMBER_ERROR) where cache["level"] == "ERROR"
+          # 5. Promote trace_id from JSON into the OTLP trace_id field for log-trace correlation
+          - set(trace_id.string, cache["trace_id"]) where cache["trace_id"] != nil
+          # 6. Promote span_id from JSON into the OTLP span_id field
+          - set(span_id.string, cache["span_id"]) where cache["span_id"] != nil
   tail_sampling:
     decision_wait: 10s
     policies:
@@ -58,7 +80,7 @@ service:
       processors: [batch]
     logs:
       receivers: [filelog]
-      processors: [resource]
+      processors: [transform, resource]
       exporters: [otlphttp/loki]
     traces:
       receivers: [otlp/traces]

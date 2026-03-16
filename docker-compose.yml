@@ -26,7 +26,7 @@ services:
     networks:
       - sre-test-network
   tempo:
-    image: grafana/tempo
+    image: grafana/tempo:2.6.1
     command: "-config.file=/etc/tempo.yaml"
     ports:
       - '4517:4517'
@@ -35,6 +35,21 @@ services:
         source: tempo-data
         target: /var/tempo
       - ./tempo.yaml:/etc/tempo.yaml
+    networks:
+      - sre-test-network
+  metal-app:
+    build:
+      context: ./emissor-de-metricas-simples
+    environment:
+      - OTEL_COLLECTOR_ADDRESS=collector:4317
+      - OTEL_TRACES_ADDRESS=collector:4417
+      - LOG_FILE_PATH=/var/log/sre/minhaApp.log
+    ports:
+      - '8080:8080'
+    volumes:
+      - app-logs:/var/log/sre
+    depends_on:
+      - collector
     networks:
       - sre-test-network
   collector:
@@ -49,7 +64,7 @@ services:
       - '55681:55681'
     volumes:
       - ./collector-config.yaml:/conf/collector-config.yaml
-      - ./emissor-de-metricas-simples/minhaApp.log:/var/log/sre/minhaApp.log
+      - app-logs:/var/log/sre
     depends_on:
       - prometheus
       - loki
@@ -60,5 +75,6 @@ volumes:
   loki-data:
   tempo-data:
   grafana-storage:
+  app-logs:
 networks:
   sre-test-network:
